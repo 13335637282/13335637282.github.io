@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>进制转换器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f0f2f5;
+            margin: 0;
+        }
+
+        .converter {
+            background: #fff;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 400px;
+        }
+
+        h2 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .input-group {
+            margin: 15px 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #666;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #4dabf7;
+        }
+
+        .note {
+            color: #666;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="converter">
+        <h2>进制转换器</h2>
+        <div class="input-group">
+            <label>十六进制 (Hex)</label>
+            <input type="text" id="hex" oninput="convertFromHex(this.value)">
+            <div class="note">输入格式示例: 1A3F</div>
+        </div>
+
+        <div class="input-group">
+            <label>十进制 (Dec)</label>
+            <input type="text" id="dec" oninput="convertFromDec(this.value)">
+            <div class="note">输入格式示例: 12345</div>
+        </div>
+
+        <div class="input-group">
+            <label>八进制 (Oct)</label>
+            <input type="text" id="oct" oninput="convertFromOct(this.value)">
+            <div class="note">输入格式示例: 755</div>
+        </div>
+
+        <div class="input-group">
+            <label>二进制 (Bin)</label>
+            <input type="text" id="bin" oninput="convertFromBin(this.value)">
+            <div class="note">输入格式示例: 10101101</div>
+        </div>
+    </div>
+
+    <script>
+        function convertFromHex(value) {
+            value = value.toUpperCase().replace(/[^0-9A-F]/g, '');
+            if (value === '') return clearAll();
+            document.getElementById('hex').value = value;
+            convert(value, 16);
+        }
+
+        function convertFromDec(value) {
+            value = value.replace(/[^0-9]/g, '');
+            if (value === '') return clearAll();
+            document.getElementById('dec').value = value;
+            convert(value, 10);
+        }
+
+        function convertFromOct(value) {
+            value = value.replace(/[^0-7]/g, '');
+            if (value === '') return clearAll();
+            document.getElementById('oct').value = value;
+            convert(value, 8);
+        }
+
+        function convertFromBin(value) {
+            value = value.replace(/[^01]/g, '');
+            if (value === '') return clearAll();
+            document.getElementById('bin').value = value;
+            convert(value, 2);
+        }
+
+        function convert(value, fromBase) {
+            try {
+                const decimal = parseInt(value, fromBase);
+                if (isNaN(decimal)) return clearAll();
+                
+                document.getElementById('dec').value = decimal.toString(10);
+                document.getElementById('hex').value = decimal.toString(16).toUpperCase();
+                document.getElementById('oct').value = decimal.toString(8);
+                document.getElementById('bin').value = decimal.toString(2);
+            } catch {
+                clearAll();
+            }
+        }
+
+        function clearAll() {
+            document.getElementById('hex').value = '';
+            document.getElementById('dec').value = '';
+            document.getElementById('oct').value = '';
+            document.getElementById('bin').value = '';
+        }
+    </script>
+</body>
+</html>
