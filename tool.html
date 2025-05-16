@@ -1,1 +1,184 @@
-<h>工具 & 游戏页面   制作中</h>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>工具与游戏</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --game-color: #e74c3c;
+            --tool-color: #27ae60;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f6fa;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .category-tabs {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .tab-button {
+            padding: 12px 30px;
+            margin: 0 10px;
+            border: none;
+            border-radius: 25px;
+            background: #fff;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .tab-button.active {
+            background: var(--secondary-color);
+            color: white;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 25px;
+            padding: 15px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--secondary-color);
+        }
+
+        .card.tool::before {
+            background: var(--tool-color);
+        }
+
+        .card.game::before {
+            background: var(--game-color);
+        }
+
+        .card-icon {
+            font-size: 40px;
+            margin-bottom: 15px;
+            color: var(--primary-color);
+        }
+
+        .card h3 {
+            margin: 0 0 10px;
+            color: var(--primary-color);
+        }
+
+        .card p {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        @media (max-width: 768px) {
+            .grid-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .tab-button {
+                display: block;
+                width: 100%;
+                margin: 10px 0;
+            }
+        }
+    </style>
+    <!-- 引入Font Awesome图标 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="category-tabs">
+            <button class="tab-button active" onclick="filterSelection('all')">全部</button>
+            <button class="tab-button" onclick="filterSelection('tool')">工具</button>
+            <button class="tab-button" onclick="filterSelection('game')">游戏</button>
+        </div>
+
+        <div class="grid-container" id="grid">
+            <!-- 工具类 -->
+            <div class="card tool" onclick="location.href='#'">
+                <!-- <i class="fas fa-calculator card-icon"></i>-->
+                <h3>暂无</h3>
+                <p>我已在加班加点的工作啦!</p>
+            </div>
+
+            <!-- 游戏类 -->
+            <div class="card game" onclick="location.href='game/wzq.html'">
+                <i class="fas fa-chess-board card-icon"></i>
+                <h3>AI五子棋</h3>
+                <p>挑战智能AI的经典五子棋游戏</p>
+            </div>
+
+            <!-- 更多卡片... -->
+        </div>
+    </div>
+
+    <script>
+        // 分类过滤功能
+        function filterSelection(category) {
+            const cards = document.querySelectorAll('.card');
+            const tabs = document.querySelectorAll('.tab-button');
+            
+            // 更新标签状态
+            tabs.forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.textContent.includes(category === 'all' ? '全部' : 
+                                              category === 'tool' ? '工具' : '游戏')) {
+                    tab.classList.add('active');
+                }
+            });
+
+            // 过滤卡片显示
+            cards.forEach(card => {
+                const shouldShow = category === 'all' || 
+                                 (category === 'tool' && card.classList.contains('tool')) ||
+                                 (category === 'game' && card.classList.contains('game'));
+                card.style.display = shouldShow ? 'block' : 'none';
+            });
+        }
+
+        // 卡片点击效果
+        document.querySelectorAll('.card').forEach(card => {
+            card.addEventListener('click', function() {
+                this.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    this.style.transform = '';
+                }, 200);
+            });
+        });
+    </script>
+</body>
+</html>
