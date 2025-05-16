@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI五子棋</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #F5F5DC;
+            transition: background-color 0.5s ease;
+            margin: 0;
+            min-height: 100vh;
+        }
+        #board {
+            border: 2px solid #8B4513;
+            background-color: #E6B85E;
+            box-shadow: 0 0 15px rgba(0,0,0,0.3);
+            margin-top: 20px;
+        }
+        .status {
+            margin: 20px;
+            font-size: 24px;
+            color: #333;
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.5);
+            padding: 10px 20px;
+            border-radius: 5px;
+            background: rgba(255,255,255,0.8);
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #8B4513;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            margin-top: 20px;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="status" id="status">轮到玩家下棋</div>
+    <canvas id="board"></canvas>
+    <button onclick="resetGame()">重新开始</button>
+
+<script>
+const SIZE = 15;
+const CELL_SIZE = 30;
+const BOARD_SIZE = CELL_SIZE * SIZE;
+
+let board = [];
+let currentPlayer = 1;
+let gameOver = false;
+
+const canvas = document.getElementById('board');
+const ctx = canvas.getContext('2d');
+
+canvas.width = BOARD_SIZE;
+canvas.height = BOARD_SIZE;
+
+function initBoard() {
+    board = Array(SIZE).fill().map(() => Array(SIZE).fill(0));
+    drawBoard();
+}
+
+function drawBoard() {
+    ctx.clearRect(0, 0, BOARD_SIZE, BOARD_SIZE);
+    ctx.fillStyle = '#E6B85E';
+    ctx.fillRect(0, 0, BOARD_SIZE, BOARD_SIZE);
+
+    ctx.strokeStyle = '#333';
+    for (let i = 0; i < SIZE; i++) {
+        const pos = i * CELL_SIZE + CELL_SIZE/2;
+        ctx.beginPath();
+        ctx.moveTo(CELL_SIZE/2, pos);
+        ctx.lineTo(BOARD_SIZE - CELL_SIZE/2, pos);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(pos, CELL_SIZE/2);
+        ctx.lineTo(pos, BOARD_SIZE - CELL_SIZE/2);
+        ctx.stroke();
+    }
+
+    for (let i = 0; i < SIZE; i++) {
+        for (let j = 0; j < SIZE; j++) {
+            if (board[i][j] === 1) drawPiece(i, j, 'black');
+            else if (board[i][j] === 2) drawPiece(i, j, 'white');
+        }
+    }
+}
+
+function drawPiece(x, y, color) {
+    const px = x * CELL_SIZE + CELL_SIZE/2;
+    const py = y * CELL_SIZE + CELL_SIZE/2;
+    ctx.beginPath();
+    ctx.arc(px, py, CELL_SIZE/2 - 2, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = '#333';
+    ctx.stroke();
+}
+
+function checkDraw() {
+    return board.every(row => row.every(cell => cell !== 0));
+}
+
+function checkWin(x, y, player) {
+    const directions = [[1,0], [0,1], [1,1], [1,-1]];
+    for (let [dx, dy] of directions) {
+        let count = 1;
+        for (let i = 1; i < 5; i++) {
+            const nx = x + dx * i;
+            const ny = y + dy * i;
+            if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE && board[nx][ny] === player) {
+                count++;
+            } else break;
+        }
+        for (let i = 1; i < 5; i++) {
+            const nx = x - dx * i;
+            const ny = y - dy * i;
+            if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE && board[nx][ny] === player) {
+                count++;
+            } else break;
+        }
+        if (count >= 5) {
+            document.body.style.backgroundColor = player === 1 ? 'black' : 'white';
+            document.getElementById('status').style.color = player === 1 ? 'white' : 'black';
+            return true;
+        }
+    }
+    return false;
+}
+
+function aiMove() {
+    let bestScore = -Infinity;
+    let bestMoves = [];
+    const threatPoints = detectPlayerThreats();
+    
+    if (threatPoints.length > 0) {
+        bestMoves = threatPoints;
+    } else {
+        for (let i = 0; i < SIZE; i++) {
+            for (let j = 0; j < SIZE; j++) {
+                if (board[i][j] !== 0) continue;
+                let score = evaluatePosition(i, j, 2) + evaluatePosition(i, j, 1);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMoves = [{x:i, y:j}];
+                } else if (score === bestScore) {
+                    bestMoves.push({x:i, y:j});
+                }
+            }
+        }
+    }
+    const bestMove = bestMoves[Math.floor(Math.random()*bestMoves.length)];
+    placePiece(bestMove.x, bestMove.y, 2);
+}
+
+function detectPlayerThreats() {
+    const threats = [];
+    for (let x = 0; x < SIZE; x++) {
+        for (let y = 0; y < SIZE; y++) {
+            if (board[x][y] !== 1) continue;
+            const directions = [[1,0], [0,1], [1,1], [1,-1]];
+            directions.forEach(([dx, dy]) => {
+                let length = 1;
+                let leftOpen = false, rightOpen = false;
+                let cx = x - dx, cy = y - dy;
+                if (cx >= 0 && cx < SIZE && cy >= 0 && cy < SIZE && board[cx][cy] === 0) leftOpen = true;
+                for (let i = 1; i < 4; i++) {
+                    cx = x + dx * i;
+                    cy = y + dy * i;
+                    if (cx < 0 || cx >= SIZE || cy < 0 || cy >= SIZE) break;
+                    if (board[cx][cy] === 1) length++;
+                    else {
+                        if (board[cx][cy] === 0) rightOpen = true;
+                        break;
+                    }
+                }
+                if (length === 3) {
+                    if (leftOpen && rightOpen) {
+                        const leftDefend = {x: x - dx, y: y - dy};
+                        const rightDefend = {x: x + dx*3, y: y + dy*3};
+                        if (isValidPosition(leftDefend)) threats.push(leftDefend);
+                        if (isValidPosition(rightDefend)) threats.push(rightDefend);
+                    } else {
+                        const defendPoint = leftOpen ? {x: x - dx, y: y - dy} : {x: x + dx*3, y: y + dy*3};
+                        if (isValidPosition(defendPoint)) threats.push(defendPoint);
+                    }
+                }
+            });
+        }
+    }
+    return threats;
+}
+
+function isValidPosition(pos) {
+    return pos.x >= 0 && pos.x < SIZE && pos.y >= 0 && pos.y < SIZE && board[pos.x][pos.y] === 0;
+}
+
+function evaluatePosition(x, y, player) {
+    let score = 0;
+    const opponent = player === 1 ? 2 : 1;
+    const directions = [[1,0], [0,1], [1,1], [1,-1]];
+    
+    directions.forEach(([dx, dy]) => {
+        let playerCount = 1;
+        let space = 0;
+        for (let i = 1; i < 5; i++) {
+            const nx = x + dx * i;
+            const ny = y + dy * i;
+            if (nx < 0 || nx >= SIZE || ny < 0 || ny >= SIZE) break;
+            if (board[nx][ny] === player) playerCount++;
+            else {
+                if (board[nx][ny] === 0) space++;
+                break;
+            }
+        }
+        for (let i = 1; i < 5; i++) {
+            const nx = x - dx * i;
+            const ny = y - dy * i;
+            if (nx < 0 || nx >= SIZE || ny < 0 || ny >= SIZE) break;
+            if (board[nx][ny] === player) playerCount++;
+            else {
+                if (board[nx][ny] === 0) space++;
+                break;
+            }
+        }
+        if (playerCount >= 5) score += 100000;
+        else if (playerCount === 4) score += space === 2 ? 10000 : 5000;
+        else if (playerCount === 3) score += space === 2 ? 1000 : 500;
+        else if (playerCount === 2) score += space === 2 ? 100 : 50;
+    });
+
+    directions.forEach(([dx, dy]) => {
+        let opponentCount = 0;
+        for (let i = -4; i <= 4; i++) {
+            const nx = x + dx * i;
+            const ny = y + dy * i;
+            if (nx < 0 || nx >= SIZE || ny < 0 || ny >= SIZE) continue;
+            if (board[nx][ny] === opponent) opponentCount++;
+            else opponentCount = 0;
+            if (opponentCount >= 3) {
+                score += 800;
+                break;
+            }
+        }
+    });
+    return player === 2 ? score : score * 0.8;
+}
+
+function placePiece(x, y, player) {
+    if (gameOver || board[x][y] !== 0) return;
+    board[x][y] = player;
+    drawBoard();
+
+    if (checkWin(x, y, player)) {
+        gameOver = true;
+        document.getElementById('status').textContent = player === 1 ? '玩家获胜！' : 'AI获胜！';
+        return;
+    }
+
+    if (checkDraw()) {
+        gameOver = true;
+        document.body.style.backgroundColor = '#87CEEB';
+        document.getElementById('status').textContent = '平局！';
+        document.getElementById('status').style.color = '#333';
+        return;
+    }
+
+    currentPlayer = player === 1 ? 2 : 1;
+    document.getElementById('status').textContent = currentPlayer === 1 ? '轮到玩家下棋' : 'AI正在思考...';
+    if (currentPlayer === 2 && !gameOver) setTimeout(aiMove, 500);
+}
+
+function resetGame() {
+    gameOver = false;
+    currentPlayer = 1;
+    document.body.style.backgroundColor = '#F5F5DC';
+    document.getElementById('status').style.color = '#333';
+    document.getElementById('status').textContent = '轮到玩家下棋';
+    initBoard();
+}
+
+canvas.addEventListener('click', (e) => {
+    if (currentPlayer !== 1 || gameOver) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) / CELL_SIZE);
+    const y = Math.floor((e.clientY - rect.top) / CELL_SIZE);
+    if (x >= 0 && x < SIZE && y >= 0 && y < SIZE) placePiece(x, y, 1);
+});
+
+initBoard();
+</script>
+</body>
+</html>
