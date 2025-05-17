@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>吃豆人</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0e6d3;
+            margin: 0;
+            min-height: 100vh;
+            font-family: 'Arial', sans-serif;
+        }
+
+        #game {
+            border: 3px solid #6d5c4a;
+            border-radius: 10px;
+            background-color: #2c1810;
+            margin-top: 20px;
+        }
+
+        .title {
+            color: #6d5c4a;
+            font-size: 3em;
+            margin: 20px 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        #score {
+            color: #6d5c4a;
+            font-size: 1.5em;
+            margin: 10px 0;
+        }
+
+        .instructions {
+            color: #6d5c4a;
+            text-align: center;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1 class="title">吃豆人</h1>
+    <div id="score">分数: 0</div>
+    <canvas id="game" width="560" height="620"></canvas>
+    <p class="instructions">使用方向键移动 | 按 R 开始/重新开始</p>
+
+    <script>
+        class Game {
+            constructor() {
+                this.canvas = document.getElementById('game');
+                this.ctx = this.canvas.getContext('2d');
+                this.cellSize = 20;
+                this.moveInterval = 150;
+                this.lastMoveTime = 0;
+                
+                this.pacman = {
+                    x: 14,
+                    y: 23,
+                    dir: 0,
+                    mouth: 0
+                };
+                
+                this.ghosts = [
+                    { x: 12, y: 11, dir: 0, color: '#ff4444' },
+                    { x: 14, y: 11, dir: 0, color: '#00ffff' },
+                    { x: 16, y: 11, dir: 0, color: '#ff88ff' },
+                    { x: 14, y: 14, dir: 0, color: '#ffaa00' }
+                ];
+                
+                this.score = 0;
+                this.gameRunning = false;
+                this.gameOver = false;
+                
+                this.map = [
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1],
+                    [1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,1,1,1,1,0,1,1,0,1,1,1,1,1,1,1,1,0,1,1,0,1,1,1,1,0,1],
+                    [1,0,0,0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,0,0,0,1],
+                    [1,1,1,1,1,1,0,1,1,1,1,1,0,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1],
+                    [0,0,0,0,0,1,0,1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0],
+                    [1,1,1,1,1,1,0,1,1,0,1,1,1,0,0,1,1,1,0,1,1,0,1,1,1,1,1,1],
+                    [1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1],
+                    [1,1,1,1,1,1,0,1,1,0,1,1,1,1,1,1,1,1,0,1,1,0,1,1,1,1,1,1],
+                    [0,0,0,0,0,1,0,1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,0],
+                    [1,1,1,1,1,1,0,1,1,0,1,1,1,1,1,1,1,1,0,1,1,0,1,1,1,1,1,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1],
+                    [1,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,1],
+                    [1,1,1,0,1,1,0,1,1,0,1,1,1,1,1,1,1,1,0,1,1,0,1,1,0,1,1,1],
+                    [1,1,1,0,1,1,0,1,1,0,1,1,1,1,1,1,1,1,0,1,1,0,1,1,0,1,1,1],
+                    [1,0,0,0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,0,0,0,1],
+                    [1,0,1,1,1,1,1,1,1,1,1,1,0,1,1,0,1,1,1,1,1,1,1,1,1,1,0,1],
+                    [1,0,1,1,1,1,1,1,1,1,1,1,0,1,1,0,1,1,1,1,1,1,1,1,1,1,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+                ];
+
+                this.init();
+            }
+
+            init() {
+                document.addEventListener('keydown', (e) => this.handleInput(e));
+                requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
+            }
+
+            handleInput(e) {
+                if (e.key.toLowerCase() === 'r') {
+                    this.resetGame();
+                    return;
+                }
+
+                if (!this.gameRunning || this.gameOver) return;
+
+                const dirMap = { 
+                    ArrowUp: 1, 
+                    ArrowDown: 2, 
+                    ArrowLeft: 3, 
+                    ArrowRight: 4 
+                };
+                this.pacman.dir = dirMap[e.key] || this.pacman.dir;
+            }
+
+            resetGame() {
+                this.pacman = { x: 14, y: 23, dir: 0, mouth: 0 };
+                this.ghosts = [
+                    { x: 12, y: 11, dir: 0, color: '#ff4444' },
+                    { x: 14, y: 11, dir: 0, color: '#00ffff' },
+                    { x: 16, y: 11, dir: 0, color: '#ff88ff' },
+                    { x: 14, y: 14, dir: 0, color: '#ffaa00' }
+                ];
+                this.score = 0;
+                this.gameRunning = true;
+                this.gameOver = false;
+                this.lastMoveTime = 0;
+                document.getElementById('score').textContent = 'SCORE: 0';
+            }
+
+            gameLoop(timestamp) {
+                if (this.gameRunning && !this.gameOver) {
+                    this.update(timestamp);
+                }
+                this.draw();
+                requestAnimationFrame((ts) => this.gameLoop(ts));
+            }
+
+            update(timestamp) {
+                if (!this.lastMoveTime) this.lastMoveTime = timestamp;
+                const delta = timestamp - this.lastMoveTime;
+
+                if (delta > this.moveInterval) {
+                    // Pacman移动
+                    let newX = this.pacman.x;
+                    let newY = this.pacman.y;
+                    
+                    switch(this.pacman.dir) {
+                        case 1: newY--; break;
+                        case 2: newY++; break;
+                        case 3: newX--; break;
+                        case 4: newX++; break;
+                    }
+
+                    if (this.map[newY][newX] !== 1) {
+                        this.pacman.x = newX;
+                        this.pacman.y = newY;
+                        if (this.map[this.pacman.y][this.pacman.x] === 0) {
+                            this.score += 10;
+                            this.map[this.pacman.y][this.pacman.x] = 2;
+                            document.getElementById('score').textContent = `SCORE: ${this.score}`;
+                        }
+                    }
+
+                    // 幽灵移动
+                    this.ghosts.forEach(ghost => {
+                        const directions = [ 
+                            {x:0,y:-1}, {x:0,y:1}, 
+                            {x:-1,y:0}, {x:1,y:0} 
+                        ];
+                        
+                        const validDirs = directions.filter(dir => {
+                            return this.map[ghost.y + dir.y][ghost.x + dir.x] !== 1;
+                        });
+
+                        if (validDirs.length > 0) {
+                            const randomDir = validDirs[Math.floor(Math.random() * validDirs.length)];
+                            ghost.x += randomDir.x;
+                            ghost.y += randomDir.y;
+                        }
+                    });
+
+                    this.lastMoveTime = timestamp;
+                }
+
+                // 碰撞检测
+                this.gameOver = this.ghosts.some(ghost => 
+                    Math.abs(this.pacman.x - ghost.x) < 1 && 
+                    Math.abs(this.pacman.y - ghost.y) < 1
+                );
+
+                this.pacman.mouth = (this.pacman.mouth + 0.2) % 2;
+            }
+
+            draw() {
+                this.ctx.fillStyle = '#2c1810';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // 绘制地图
+                for (let y = 0; y < this.map.length; y++) {
+                    for (let x = 0; x < this.map[y].length; x++) {
+                        if (this.map[y][x] === 1) {
+                            this.ctx.fillStyle = '#6d5c4a';
+                            this.ctx.fillRect(x * this.cellSize, y * this.cellSize, this.cellSize, this.cellSize);
+                        } else if (this.map[y][x] === 0) {
+                            this.ctx.fillStyle = '#f0e6d3';
+                            this.ctx.beginPath();
+                            this.ctx.arc(
+                                x * this.cellSize + this.cellSize/2,
+                                y * this.cellSize + this.cellSize/2,
+                                3, 0, Math.PI * 2
+                            );
+                            this.ctx.fill();
+                        }
+                    }
+                }
+
+                // 绘制Pacman
+                this.ctx.fillStyle = '#ffd700';
+                this.ctx.beginPath();
+                const angle = this.pacman.mouth > 1 ? 
+                    [0.2 + (2 - this.pacman.mouth) * 0.5, 1.8 - (2 - this.pacman.mouth) * 0.5] :
+                    [this.pacman.mouth * 0.5, 2 - this.pacman.mouth * 0.5];
+                
+                this.ctx.arc(
+                    this.pacman.x * this.cellSize + this.cellSize/2,
+                    this.pacman.y * this.cellSize + this.cellSize/2,
+                    this.cellSize/2 - 2,
+                    Math.PI * angle[0],
+                    Math.PI * angle[1]
+                );
+                this.ctx.lineTo(
+                    this.pacman.x * this.cellSize + this.cellSize/2,
+                    this.pacman.y * this.cellSize + this.cellSize/2
+                );
+                this.ctx.fill();
+
+                // 绘制幽灵
+                this.ghosts.forEach(ghost => {
+                    this.ctx.fillStyle = ghost.color;
+                    this.ctx.beginPath();
+                    this.ctx.arc(
+                        ghost.x * this.cellSize + this.cellSize/2,
+                        ghost.y * this.cellSize + this.cellSize/2,
+                        this.cellSize/2 - 2,
+                        0, Math.PI * 2
+                    );
+                    this.ctx.fill();
+                });
+
+                // 游戏结束画面
+                if (this.gameOver) {
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                    this.ctx.fillStyle = 'white';
+                    this.ctx.font = '48px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText('GAME OVER', this.canvas.width/2, this.canvas.height/2);
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            new Game();
+        });
+    </script>
+</body>
+</html>
