@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>最终修正版扫雷</title>
+    <style>
+        :root {
+            --primary: #f0e6d6;
+            --tile: #d4c4a8;
+            --revealed: #e5d5c3;
+            --grid-line: #b3a58d;
+        }
+
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: var(--primary);
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .controls input {
+            width: 60px;
+            padding: 8px;
+            border: 2px solid var(--grid-line);
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        button {
+            padding: 8px 20px;
+            background: var(--tile);
+            border: 2px solid var(--grid-line);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        .status {
+            font-size: 2.2em;
+            margin: 15px 0 25px;
+            cursor: pointer;
+        }
+
+        .grid {
+            display: grid;
+            gap: 1px;
+            background: var(--grid-line);
+            padding: 3px;
+            border-radius: 8px;
+        }
+
+        .tile {
+            width: 35px;
+            height: 35px;
+            background: var(--tile);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            border-radius: 3px;
+            transition: transform 0.2s;
+        }
+
+        .tile:hover {
+            transform: scale(0.95);
+        }
+
+        .revealed {
+            background: var(--revealed);
+        }
+
+        .mine {
+            background: #ff6b6b !important;
+        }
+
+        .flag::after {
+            content: "🚩";
+            position: absolute;
+            font-size: 20px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .revealed span {
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <label>行: <input type="number" id="rows" value="10" min="5" max="20"></label>
+        <label>列: <input type="number" id="cols" value="10" min="5" max="20"></label>
+        <label>雷数: <input type="number" id="mines" value="15" min="1"></label>
+        <button onclick="init()">新游戏</button>
+    </div>
+    <div class="status" onclick="init()">😊</div>
+    <div class="grid" id="grid"></div>
+
+    <script>
+        let ROWS = 10;
+        let COLS = 10;
+        let MINES = 15;
+        let grid = [];
+        let gameActive = true;
+
+        const numberColors = [
+            '#2c3e50', '#3498db', '#2ecc71', 
+            '#e74c3c', '#9b59b6', '#f1c40f',
+            '#1abc9c', '#e67e22', '#7f8c8d'
+        ];
+
+        function updateSettings() {
+            ROWS = Math.max(5, Math.min(20, parseInt(document.getElementById('rows').value) || 10));
+            COLS = Math.max(5, Math.min(20, parseInt(document.getElementById('cols').value) || 10));
+            const maxMines = ROWS * COLS - 1;
+            MINES = Math.max(1, Math.min(maxMines, parseInt(document.getElementById('mines').value) || 15));
+            document.getElementById('mines').max = maxMines;
+        }
+
+        function init() {
+            gameActive = true;
+            updateSettings();
+            document.querySelector('.status').textContent = '😊';
+            
+            createGrid();
+            placeMines();
+            calculateNumbers();
+            render();
+        }
+
+        function createGrid() {
+            grid = Array(ROWS).fill().map(() => 
+                Array(COLS).fill().map(() => ({
+                    isMine: false,
+                    neighborMines: 0,
+                    revealed: false,
+                    flagged: false
+                }))
+            );
+        }
+
+        function placeMines() {
+            let count = 0;
+            while (count < MINES) {
+                const x = Math.floor(Math.random() * ROWS);
+                const y = Math.floor(Math.random() * COLS);
+                if (!grid[x][y].isMine) {
+                    grid[x][y].isMine = true;
+                    count++;
+                }
+            }
+        }
+
+        function calculateNumbers() {
+            for (let x = 0; x < ROWS; x++) {
+                for (let y = 0; y < COLS; y++) {
+                    if (!grid[x][y].isMine) {
+                        grid[x][y].neighborMines = getNeighborMines(x, y);
+                    }
+                }
+            }
+        }
+
+        function getNeighborMines(x, y) {
+            let count = 0;
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    const nx = x + dx;
+                    const ny = y + dy;
+                    if (nx >= 0 && nx < ROWS && ny >= 0 && ny < COLS) {
+                        if (grid[nx][ny].isMine) count++;
+                    }
+                }
+            }
+            return count;
+        }
+
+        function render() {
+            const container = document.getElementById('grid');
+            container.style.gridTemplateColumns = `repeat(${COLS}, 35px)`;
+            container.innerHTML = '';
+
+            grid.forEach((row, x) => {
+                row.forEach((cell, y) => {
+                    const tile = document.createElement('div');
+                    tile.className = 'tile';
+                    
+                    if (cell.revealed) {
+                        tile.classList.add('revealed');
+                        if (cell.isMine) {
+                            tile.classList.add('mine');
+                        } else if (cell.neighborMines > 0) {
+                            const span = document.createElement('span');
+                            span.textContent = cell.neighborMines;
+                            span.style.color = numberColors[cell.neighborMines - 1];
+                            tile.appendChild(span);
+                        }
+                    }
+                    
+                    if (cell.flagged) {
+                        tile.classList.add('flag');
+                    }
+
+                    tile.addEventListener('click', () => handleClick(x, y));
+                    tile.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        handleRightClick(x, y);
+                    });
+
+                    container.appendChild(tile);
+                });
+            });
+        }
+
+        function handleClick(x, y) {
+            if (!gameActive || grid[x][y].flagged) return;
+
+            if (grid[x][y].isMine) {
+                gameOver();
+                return;
+            }
+
+            reveal(x, y);
+            checkWin();
+            render();
+        }
+
+        function handleRightClick(x, y) {
+            if (!gameActive || grid[x][y].revealed) return;
+            grid[x][y].flagged = !grid[x][y].flagged;
+            render();
+        }
+
+        function reveal(x, y) {
+            if (x < 0 || x >= ROWS || y < 0 || y >= COLS || 
+                grid[x][y].revealed || grid[x][y].flagged) return;
+
+            grid[x][y].revealed = true;
+
+            if (grid[x][y].neighborMines === 0) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        reveal(x + dx, y + dy);
+                    }
+                }
+            }
+        }
+
+        function gameOver() {
+            gameActive = false;
+            document.querySelector('.status').textContent = '💥';
+            grid.forEach(row => row.forEach(cell => cell.revealed = true));
+            render();
+        }
+
+        function checkWin() {
+            const win = grid.every(row => row.every(cell => 
+                cell.isMine ? true : cell.revealed
+            ));
+            if (win) {
+                gameActive = false;
+                document.querySelector('.status').textContent = '🚩';
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'r') init();
+        });
+
+        init();
+    </script>
+</body>
+</html>
