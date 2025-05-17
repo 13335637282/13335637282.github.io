@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Modern Tetris</title>
+    <style>
+        body {
+            background-color: #f5e6d3;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        #game-container {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+        }
+
+        #game-board {
+            border: 3px solid #8b735b;
+            border-radius: 8px;
+            background: #fffaf0;
+        }
+
+        #info-panel {
+            color: #6b4f3a;
+            padding: 20px;
+            background: #fffaf0;
+            border-radius: 8px;
+            border: 2px solid #8b735b;
+        }
+
+        .game-over {
+            position: absolute;
+            color: #8b0000;
+            font-size: 48px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px white;
+            display: none;
+        }
+
+        .restart-prompt {
+            color: #6b4f3a;
+            font-size: 20px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-board" width="300" height="600"></canvas>
+        <div id="info-panel">
+            <div>得分: <span id="score">0</span></div>
+            <div>下一个:</div>
+            <canvas id="next-piece" width="100" height="100"></canvas>
+            <div class="restart-prompt">按 R 重新开始</div>
+        </div>
+    </div>
+    <div class="game-over">游戏结束!</div>
+
+<script>
+const canvas = document.getElementById('game-board');
+const ctx = canvas.getContext('2d');
+const nextCanvas = document.getElementById('next-piece');
+const nextCtx = nextCanvas.getContext('2d');
+const scoreElement = document.getElementById('score');
+const gameOverElement = document.querySelector('.game-over');
+
+const BLOCK_SIZE = 30;
+const BOARD_WIDTH = 10;
+const BOARD_HEIGHT = 20;
+let score = 0;
+let gameLoop;
+let dropCounter = 0;
+let dropInterval = 1000;
+
+// 方块形状
+const PIECES = [
+    [[1,1,1,1]], // I
+    [[1,1,1],[0,1,0]], // T
+    [[1,1,1],[1,0,0]], // L
+    [[1,1,1],[0,0,1]], // J
+    [[1,1],[1,1]],     // O
+    [[1,1,0],[0,1,1]], // S
+    [[0,1,1],[1,1,0]]  // Z
+];
+
+// 颜色配置
+const COLORS = [
+    '#FF6B6B', '#4ECDC4', '#45B7D1', 
+    '#96CEB4', '#FFEEAD', '#D4A5A5'
+];
+
+let board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill(0));
+let currentPiece = null;
+let nextPiece = null;
+let pos = { x: 0, y: 0 };
+
+function createPiece() {
+    const pieceIdx = Math.floor(Math.random() * PIECES.length);
+    const piece = PIECES[pieceIdx];
+    return {
+        shape: piece,
+        color: COLORS[pieceIdx]
+    };
+}
+
+function drawBlock(x, y, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE-1, BLOCK_SIZE-1);
+}
+
+function drawBoard() {
+    ctx.fillStyle = '#fffaf0';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    board.forEach((row, y) => {
+        row.forEach((value, x) => {
+            if (value) {
+                drawBlock(x, y, COLORS[value - 1]);
+            }
+        });
+    });
+}
+
+function drawPiece(piece, offsetX, offsetY) {
+    piece.shape.forEach((row, y) => {
+        row.forEach((value, x) => {
+            if (value) {
+                drawBlock(x + offsetX, y + offsetY, piece.color);
+            }
+        });
+    });
+}
+
+function drawNextPiece() {
+    nextCtx.fillStyle = '#fffaf0';
+    nextCtx.fillRect(0, 0, nextCanvas.width, nextCanvas.height);
+    
+    const offsetX = (4 - nextPiece.shape[0].length) / 2;
+    const offsetY = (4 - nextPiece.shape.length) / 2;
+    
+    nextPiece.shape.forEach((row, y) => {
+        row.forEach((value, x) => {
+            if (value) {
+                nextCtx.fillStyle = nextPiece.color;
+                nextCtx.fillRect(
+                    (x + offsetX) * BLOCK_SIZE,
+                    (y + offsetY) * BLOCK_SIZE,
+                    BLOCK_SIZE-1,
+                    BLOCK_SIZE-1
+                );
+            }
+        });
+    });
+}
+
+function validMove(piece, pos, moveX=0, moveY=0) {
+    const newX = pos.x + moveX;
+    const newY = pos.y + moveY;
+    
+    return piece.shape.every((row, dy) => {
+        return row.every((value, dx) => {
+            let x = newX + dx;
+            let y = newY + dy;
+            return (
+                value === 0 ||
+                (x >= 0 && x < BOARD_WIDTH &&
+                 y < BOARD_HEIGHT &&
+                 !board[y]?.[x])
+            );
+        });
+    });
+}
+
+function rotate(piece) {
+    const newShape = piece.shape[0].map((_, i) =>
+        piece.shape.map(row => row[i]).reverse()
+    );
+    return { ...piece, shape: newShape };
+}
+
+function merge() {
+    currentPiece.shape.forEach((row, y) => {
+        row.forEach((value, x) => {
+            if (value) {
+                board[pos.y + y][pos.x + x] = COLORS.indexOf(currentPiece.color) + 1;
+            }
+        });
+    });
+}
+
+function clearLines() {
+    let linesCleared = 0;
+    
+    for (let y = BOARD_HEIGHT - 1; y >= 0; y--) {
+        if (board[y].every(value => value)) {
+            board.splice(y, 1);
+            board.unshift(Array(BOARD_WIDTH).fill(0));
+            linesCleared++;
+            y++;
+        }
+    }
+    
+    if (linesCleared) {
+        score += [40, 100, 300, 1200][linesCleared - 1];
+        scoreElement.textContent = score;
+        dropInterval = Math.max(100, 1000 - score * 0.5);
+    }
+}
+
+function gameOver() {
+    clearInterval(gameLoop);
+    gameOverElement.style.display = 'block';
+}
+
+function resetGame() {
+    board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill(0));
+    score = 0;
+    scoreElement.textContent = score;
+    dropInterval = 1000;
+    gameOverElement.style.display = 'none';
+    currentPiece = nextPiece || createPiece();
+    nextPiece = createPiece();
+    pos.x = Math.floor(BOARD_WIDTH/2 - currentPiece.shape[0].length/2);
+    pos.y = 0;
+    drawNextPiece();
+}
+
+function update() {
+    if (!validMove(currentPiece, pos, 0, 1)) {
+        merge();
+        clearLines();
+        currentPiece = nextPiece;
+        nextPiece = createPiece();
+        pos.x = Math.floor(BOARD_WIDTH/2 - currentPiece.shape[0].length/2);
+        pos.y = 0;
+        drawNextPiece();
+        
+        if (!validMove(currentPiece, pos)) {
+            gameOver();
+            return;
+        }
+    } else {
+        pos.y++;
+    }
+    
+    drawBoard();
+    drawPiece(currentPiece, pos.x, pos.y);
+}
+
+document.addEventListener('keydown', event => {
+    if (event.key.toUpperCase() === 'R') {
+        resetGame();
+        gameLoop = setInterval(update, dropInterval);
+        return;
+    }
+
+    if (gameOverElement.style.display === 'block') return;
+
+    switch(event.key) {
+        case 'ArrowLeft':
+            if (validMove(currentPiece, pos, -1)) pos.x--;
+            break;
+        case 'ArrowRight':
+            if (validMove(currentPiece, pos, 1)) pos.x++;
+            break;
+        case 'ArrowDown':
+            if (validMove(currentPiece, pos, 0, 1)) pos.y++;
+            break;
+        case 'ArrowUp':
+            const rotated = rotate(currentPiece);
+            if (validMove(rotated, pos)) currentPiece = rotated;
+            break;
+    }
+    
+    drawBoard();
+    drawPiece(currentPiece, pos.x, pos.y);
+});
+
+// 初始化游戏
+resetGame();
+gameLoop = setInterval(update, dropInterval);
+</script>
+</body>
+</html>
