@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>事件时间线</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            line-height: 1.6;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 20px;
+            background: rgba(25, 25, 35, 0.8);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border-left: 5px solid #4cc9f0;
+        }
+        
+        h1 {
+            color: #4cc9f0;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+        }
+        
+        .subtitle {
+            color: #a9a9b8;
+            font-size: 1.2rem;
+            font-weight: 300;
+        }
+        
+        .timeline {
+            position: relative;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        /* 时间线中间的竖线 */
+        .timeline::after {
+            content: '';
+            position: absolute;
+            width: 6px;
+            background: linear-gradient(to bottom, #4cc9f0, #4361ee);
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            margin-left: -3px;
+            border-radius: 10px;
+        }
+        
+        /* 事件卡片 */
+        .event-card {
+            padding: 20px 30px;
+            position: relative;
+            width: 45%;
+            background: rgba(30, 30, 46, 0.9);
+            border-radius: 15px;
+            margin-bottom: 40px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 1px solid rgba(76, 201, 240, 0.1);
+        }
+        
+        .event-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
+        }
+        
+        /* 交替排列 */
+        .left {
+            left: 0;
+        }
+        
+        .right {
+            left: 55%;
+        }
+        
+        /* 事件卡片上的小圆点 */
+        .event-card::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: #4cc9f0;
+            border: 5px solid #1a1a2e;
+            border-radius: 50%;
+            top: 25px;
+            z-index: 1;
+        }
+        
+        .left::after {
+            right: -13px;
+        }
+        
+        .right::after {
+            left: -13px;
+        }
+        
+        .event-title {
+            color: #4cc9f0;
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .event-title i {
+            font-size: 1.3rem;
+        }
+        
+        .time {
+            color: #a9a9b8;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .chat-record {
+            background: rgba(20, 20, 30, 0.7);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            border-left: 4px solid #4361ee;
+        }
+        
+        .message {
+            padding: 10px;
+            margin: 8px 0;
+            border-radius: 8px;
+            position: relative;
+            padding-left: 50px;
+        }
+        
+        .message::before {
+            position: absolute;
+            left: 10px;
+            top: 10px;
+            font-weight: bold;
+        }
+        
+        .info {
+            background: rgba(32, 32, 64, 0.7);
+            border-left: 4px solid #4cc9f0;
+        }
+        
+        .tip {
+            background: rgba(32, 64, 32, 0.7);
+            border-left: 4px solid #4ade80;
+        }
+       
+        .message-header {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #c5c5d3;
+        }
+        
+        .message-content {
+            color: #e0e0e0;
+        }
+        
+        .event-content {
+            margin-top: 15px;
+            color: #c5c5d3;
+        }
+        
+        .note {
+            background: rgba(64, 32, 64, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #9d4edd;
+            font-style: italic;
+        }
+        
+        .formula-container {
+            background: rgba(20, 25, 40, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            overflow-x: auto;
+        }
+        
+        .formula-title {
+            color: #f72585;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+        
+        .variables {
+            margin-top: 15px;
+            padding-left: 20px;
+        }
+        
+        .variable {
+            margin: 5px 0;
+        }
+        
+        .conflict {
+            color: #f72585;
+            font-weight: bold;
+        }
+        
+        .cooperation {
+            color: #4ade80;
+            font-weight: bold;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px;
+            color: #a9a9b8;
+            font-size: 0.9rem;
+            border-top: 1px solid rgba(76, 201, 240, 0.2);
+        }
+        
+        /* 响应式设计 */
+        @media screen and (max-width: 768px) {
+            .timeline::after {
+                left: 31px;
+            }
+            
+            .event-card {
+                width: 100%;
+                padding-left: 70px;
+                left: 0;
+            }
+            
+            .event-card::after {
+                left: 21px;
+            }
+            
+            .left::after, .right::after {
+                left: 21px;
+            }
+            
+            .right {
+                left: 0;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+        }
+        
+        /* 动画效果 */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .event-card {
+            animation: fadeInUp 0.6s ease forwards;
+        }
+        
+        .event-card:nth-child(odd) {
+            animation-delay: 0.1s;
+        }
+        
+        .event-card:nth-child(even) {
+            animation-delay: 0.2s;
+        }
+        
+        /* 公式样式 */
+        .MathJax {
+            color: #a9d1f7 !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-timeline"></i> 事件时间线</h1>
+            <p class="subtitle">HC B站合作与相关事件记录 - 2026年1月17日</p>
+        </header>
+        
+        <div class="timeline">
+            <!-- 事件1: HC B站合作 -->
+            <div class="event-card left">
+                <div class="event-title">
+                    <i class="fas fa-handshake"></i> HC B站 合作
+                </div>
+                <div class="time">
+                    <i class="far fa-clock"></i> 2026/1/17 21:37:02 - 21:37:08
+                </div>
+                
+                <div class="chat-record">
+                    <div class="message info">
+                        <div class="message-header">Harry: 01-17 21:37:02</div>
+                        <div class="message-content">那我们互关互点赞@Clover874</div>
+                    </div>
+                    
+                    <div class="message tip">
+                        <div class="message-header">Clover874: 01-17 21:37:08</div>
+                        <div class="message-content">ok</div>
+                    </div>
+                </div>
+                
+                <div class="event-content">
+                    <p>Harry 和 Clover 在 2026/1/17 21:37:02 Harry 提出合作。</p>
+                    <p>Harry 和 Clover 在 2026/1/17 21:37:08 Clover 同意合作。</p>
+                </div>
+            </div>
+            
+            <!-- 事件2: 四叶草丛突破人数大关 -->
+            <div class="event-card right">
+                <div class="event-title">
+                    <i class="fas fa-users"></i> 四叶草丛突破人数大关
+                </div>
+                <div class="time">
+                    <i class="far fa-clock"></i> 2026/1/17 21:40:37 - 21:40:40
+                </div>
+                
+                <div class="chat-record">
+                    <div class="message info">
+                        <div class="message-header">一个普通的人: 01-17 21:40:37</div>
+                        <div class="message-content">四叶草丛的人数首次达到五个月前的水平。</div>
+                    </div>
+                    
+                    <div class="message info">
+                        <div class="message-header">一个普通的人: 01-17 21:40:40</div>
+                        <div class="message-content">可喜可贺。</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 事件3: Harry 思想 -->
+            <div class="event-card left">
+                <div class="event-title">
+                    <i class="fas fa-brain"></i> Harry 思想
+                </div>
+                <div class="time">
+                    <i class="far fa-clock"></i> 2026/1/17 21:42:14 - 21:42:34
+                </div>
+                
+                <div class="chat-record">
+                    <div class="message info">
+                        <div class="message-header">Harry: 01-17 21:42:14 (已被Clover撤回)</div>
+                        <div class="message-content">必须铲除 Cbscfe</div>
+                    </div>
+                    
+                    <div class="message info">
+                        <div class="message-header">Harry: 01-17 21:42:34</div>
+                        <div class="message-content">重新来过</div>
+                    </div>
+                </div>
+                
+                <div class="event-content">
+                    <p>Harry提出"必须铲除 Cbscfe"的思想。</p>
+                    <p class="conflict">这与Clover冲突</p>
+                    <div class="note">
+                        *注: CH 达成合作以来第一次矛盾*
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 事件4: CN 定论 -->
+            <div class="event-card right">
+                <div class="event-title">
+                    <i class="fas fa-balance-scale"></i> CN 定论
+                </div>
+                <div class="time">
+                    <i class="far fa-clock"></i> 2026/1/17 21:45:29
+                </div>
+                
+                <div class="chat-record">
+                    <div class="message info">
+                        <div class="message-header">一个普通的人: 01-17 21:45:29</div>
+                        <div class="message-content">搞个人崇拜是要吃亏的</div>
+                    </div>
+                </div>
+                
+                <div class="event-content">
+                    <p>CN 提出 CN 定论 1</p>
+                </div>
+            </div>
+            
+            <!-- 事件5: Harry 思想2 -->
+            <div class="event-card left">
+                <div class="event-title">
+                    <i class="fas fa-brain"></i> Harry 思想2
+                </div>
+                <div class="time">
+                    <i class="far fa-clock"></i> 2026/1/17 21:55:43 - 21:56:03
+                </div>
+                
+                <div class="chat-record">
+                    <div class="message info">
+                        <div class="message-header">Harry: 01-17 21:55:43</div>
+                        <div class="message-content">你们赶紧做b站不要依赖radmin</div>
+                    </div>
+                    
+                    <div class="message info">
+                        <div class="message-header">Harry: 01-17 21:55:53</div>
+                        <div class="message-content">让cb永远烦不到你们</div>
+                    </div>
+                    
+                    <div class="message tip">
+                        <div class="message-header">Clover874: 01-17 21:56:00</div>
+                        <div class="message-content">@Harry NO</div>
+                    </div>
+                    
+                    <div class="message tip">
+                        <div class="message-header">Clover874: 01-17 21:56:02</div>
+                        <div class="message-content">他还好</div>
+                    </div>
+                    
+                    <div class="message tip">
+                        <div class="message-header">Clover874: 01-17 21:56:03</div>
+                        <div class="message-content">其实</div>
+                    </div>
+                </div>
+                
+                <div class="event-content">
+                    <p>Harry 强烈阻止 Cbscfe 和 Clover 复合。</p>
+                    <div class="note">
+                        *注: CH 达成合作以来第二次矛盾*
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 事件6: Hello 第一定论 -->
+            <div class="event-card right">
+                <div class="event-title">
+                    <i class="fas fa-calculator"></i> Hello 第一定论
+                </div>
+                <div class="time">
+                    <i class="far fa-clock"></i> 2026/1/17 22:02:13 - 22:02:31
+                </div>
+                
+                <div class="chat-record">
+                    <div class="message info">
+                        <div class="message-header">A_Sorry: 01-17 22:02:13</div>
+                        <div class="message-content">拉的人越多，越不稳定</div>
+                    </div>
+                    
+                    <div class="message info">
+                        <div class="message-header">A_Sorry: 01-17 22:02:31</div>
+                        <div class="message-content">hello第一定论</div>
+                    </div>
+                </div>
+                
+                <div class="event-content">
+                    <p>Hello 提出 Hello 第一定论。</p>
+                    
+                    <div class="formula-container">
+                        <div class="formula-title">完整公式</div>
+                        $$
+                        F = \alpha \times \frac{Z}{S} + \beta \times G \times V
+                        $$
+                        
+                        <div class="variables">
+                            <div class="variable">其中：</div>
+                            <div class="variable">- \( S \)：群总人数</div>
+                            <div class="variable">- \( Z \)：被群友拉进群的人数（即通过邀请加入的人数）</div>
+                            <div class="variable">- \( G \)：管理管制时间与群存在时间的比值（\( G = \lvert \frac{\text{管理管制时间}}{\text{群存在时间}} -0.45 \lvert \times 2 \)）</div>
+                            <div class="variable">- \( F \)：群不稳定率（数值越大表示群越不稳定）</div>
+                            <div class="variable">- \( V \): 群内发生过的变故次数，内部信息不同步造成的影响</div>
+                            <div class="variable">- \( \alpha \) 和 \( \beta \) 为权重系数，满足 \( \alpha + \beta = 1 \)（可选），以确保 \( F \) 在合理范围内。</div>
+                        </div>
+                        
+                        <div class="event-content" style="margin-top: 15px;">
+                            <h4>说明：</h4>
+                            <ol>
+                                <li><strong>归一化处理</strong>：将原公式中的 \( \frac{Z}{2} \) 项移除，保留已归一化的邀请比例 \( \frac{Z}{S} \) 和管理干预比例 \( G \)，两者均在0到1之间，量纲一致，相加更具可比性。</li>
+                                <li><strong>权重调整</strong>：通过系数 \( \alpha \) 和 \( \beta \) 灵活调整两项对不稳定率的贡献，可根据实际数据或经验设定。例如，若认为管理干预程度更能反映不稳定，可设 \( \beta > \alpha \)（如 \( \alpha = 0.3 \)，\( \beta = 0.7 \)）。</li>
+                                <li><strong>解释合理</strong>：
+                                    <ul>
+                                        <li>\( \frac{Z}{S} \) 反映群的邀请加入比例，比例过高可能暗示群内关系有过多联结，可能带来不稳定因素。</li>
+                                        <li>\( G \) 反映管理干预程度，干预时间比例过高或过低，表示群内管制过度或缺乏管制，可能带来的不稳定因素。</li>
+                                    </ul>
+                                </li>
+                                <li><strong>适用范围</strong>：新公式避免了原公式中因绝对人数 \( Z \) 过大导致结果失真的问题，适用于不同规模的群比较。</li>
+                            </ol>
+                            
+                            <h4>使用建议：</h4>
+                            <ul>
+                                <li>在实际应用中，可通过历史数据或专家经验确定 \( \alpha \) 和 \( \beta \) 的具体值，以优化公式的预测能力。</li>
+                                <li>如需进一步细化，可考虑引入其他因素（如群规模、活跃度等），但当前公式基于给定数据已足够可靠。</li>
+                            </ul>
+                            
+                            <p>此修改使公式结构更清晰、计算更稳定，能更可靠地评估群的稳定性。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>事件时间线记录 | 最后更新: 2026年1月18日</p>
+            <p>© 2026 事件记录系统 | 本页面仅用于事件记录与展示</p>
+        </footer>
+    </div>
+
+    <script>
+        // 简单的滚动动画效果
+        document.addEventListener('DOMContentLoaded', function() {
+            const eventCards = document.querySelectorAll('.event-card');
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '1';
+                        entry.target.style.transform = 'translateY(0)';
+                    }
+                });
+            }, { threshold: 0.1 });
+            
+            eventCards.forEach(card => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+                observer.observe(card);
+            });
+            
+            // 为每个事件卡片添加点击效果
+            eventCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    this.style.transform = 'translateY(-5px) scale(1.02)';
+                    setTimeout(() => {
+                        this.style.transform = 'translateY(-5px) scale(1)';
+                    }, 150);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
